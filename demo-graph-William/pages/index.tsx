@@ -1,60 +1,42 @@
-import React from "react"
-import { GetStaticProps } from "next"
-import Layout from "../components/Layout"
-import Post, { PostProps } from "../components/Post"
+import React, { useState, useEffect } from "react";
+import { GetStaticProps } from "next";
+import Map from "../components/Map";
+import axios from "axios";
 
-export const getStaticProps: GetStaticProps = async () => {
-  const feed = [
-    {
-      id: "1",
-      title: "Prisma is the perfect ORM for Next.js",
-      content: "[Prisma](https://github.com/prisma/prisma) and Next.js go _great_ together!",
-      published: false,
-      author: {
-        name: "Nikolas Burk",
-        email: "burk@prisma.io",
-      },
-    },
-  ]
-  return { 
-    props: { feed }, 
-    revalidate: 10 
-  }
-}
-
-type Props = {
-  feed: PostProps[]
-}
-
-const Blog: React.FC<Props> = (props) => {
+const GIS: React.FC = (props) => {
+  const [allLoc, setAllLoc] = useState(null);
+  const [allCent, setAllCent] = useState(null);
+  useEffect(() => {
+    axios
+      .get("/api/getAll")
+      .then((response) => {
+        const test = JSON.parse(response.data.rows[0].st_asgeojson);
+        console.log(test)
+        setAllLoc(response);
+      })
+      .catch((e) => {
+        console.log(e);
+      });
+    axios
+      .get("/api/getCent")
+      .then((response) => {
+        const test = JSON.parse(response.data.rows[0].st_asgeojson);
+        console.log(test)
+        setAllCent(response);
+      })
+      .catch((e) => {
+        console.log(e);
+      });
+  }, []);
+  const mapProps = [allLoc, allCent];
   return (
-    <Layout>
-      <div className="page">
-        <h1>Public Feed</h1>
-        <main>
-          {props.feed.map((post) => (
-            <div key={post.id} className="post">
-              <Post post={post} />
-            </div>
-          ))}
-        </main>
-      </div>
-      <style jsx>{`
-        .post {
-          background: white;
-          transition: box-shadow 0.1s ease-in;
-        }
+    <div className="page">
+      <h1>Demographic Harvesting</h1>
+      <main>
+        {allLoc && allCent && <Map props={mapProps}/>}
+      </main>
+    </div>
+  );
+};
 
-        .post:hover {
-          box-shadow: 1px 1px 3px #aaa;
-        }
-
-        .post + .post {
-          margin-top: 2rem;
-        }
-      `}</style>
-    </Layout>
-  )
-}
-
-export default Blog
+export default GIS;
