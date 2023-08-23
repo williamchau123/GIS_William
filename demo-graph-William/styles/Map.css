@@ -6,6 +6,8 @@
     right: 0;
     width: 680px;
     height: 680px;
+    margin: auto;
+    border: 2px solid #333;
   }
   
   .sidebarStyle {
@@ -14,7 +16,6 @@
     top: 0;
     left: 0;
     margin: 12px;
-    background-color: #404040;
     color: #ffffff;
     z-index: 1 !important;
     padding: 6px;

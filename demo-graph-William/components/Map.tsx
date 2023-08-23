@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
 import mapboxgl from "mapbox-gl";
-import { stringify } from "querystring";
 import "mapbox-gl/dist/mapbox-gl.css";
 import axios from "axios";
 
@@ -226,7 +225,7 @@ const Map = (props) => {
     });
     // Clean up on unmount
     return () => map.remove();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [radius]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize marker and correspond drag event
   useEffect(() => {
