@@ -3,7 +3,9 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import axios from "axios";
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API;
+axios.get("/api/getMapAPI").then((response) => {
+  mapboxgl.accessToken = response.data.mapKey;
+});
 
 var createGeoJSONCircle = function (center, radiusInKm, points = 64) {
   var coords = {
@@ -55,14 +57,12 @@ const Map = (props) => {
 
   // Initialize map when component mounts
   useEffect(() => {
-    if (!map) {
-      map = new mapboxgl.Map({
-        container: mapContainerRef.current,
-        style: "mapbox://styles/mapbox/streets-v11",
-        center: [lng, lat],
-        zoom: zoom,
-      });
-    }
+    map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/streets-v11",
+      center: [lng, lat],
+      zoom: zoom,
+    });
 
     // Add navigation control (the +/- zoom buttons)
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
@@ -223,7 +223,7 @@ const Map = (props) => {
           console.log(e);
         });
     });
-    
+
     const marker = new mapboxgl.Marker({
       draggable: true,
     })
@@ -312,7 +312,6 @@ const Map = (props) => {
         />
       </label>
       <div className="map-container" ref={mapContainerRef} />
-      
     </div>
   );
 };

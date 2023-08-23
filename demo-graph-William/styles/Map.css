@@ -21,3 +21,10 @@
     padding: 6px;
     font-weight: bold;
   }
+  input {
+    border-radius: 25px;
+    border: 2px solid;
+    width: 30px;
+    padding: 0 0 0 10px; 
+    height: 15px;    
+  }
