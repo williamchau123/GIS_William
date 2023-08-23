@@ -3,6 +3,9 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import axios from "axios";
 
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API;
+
+
 var createGeoJSONCircle = function (center, radiusInKm, points = 64) {
   var coords = {
     latitude: center[1],
@@ -35,7 +38,6 @@ var createGeoJSONCircle = function (center, radiusInKm, points = 64) {
 };
 
 const Map = (props) => {
-  
   const [all, cent] = props.props;
   const mapContainerRef = useRef(null);
 
@@ -53,12 +55,7 @@ const Map = (props) => {
   let map: mapboxgl.Map;
 
   // Initialize map when component mounts
-  useEffect(async () => {
-    await axios.get("/api/getMapAPI").then((response) => {
-      mapboxgl.accessToken = response.data.mapKey;
-    }).catch((e) => {
-      console.log(e);
-    });
+  useEffect(() => {
     map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: "mapbox://styles/mapbox/streets-v11",
@@ -76,7 +73,7 @@ const Map = (props) => {
       setZoom(map.getZoom().toFixed(2));
     });
 
-    map.on("load", async function () {
+    map.on("load", function () {
       let featColl = [];
       let featCollCent = [];
       // convert the data to geojson format
@@ -160,7 +157,7 @@ const Map = (props) => {
       let selectColl = [];
       let selectCollCent = [];
       // fetch the overlapped polygons
-      await axios
+      axios
         .post("/api/getIntersect", {
           data: {
             circle: createGeoJSONCircle([circle.lng, circle.lat], radius),
@@ -232,7 +229,7 @@ const Map = (props) => {
       .setLngLat([circle.lng, circle.lat])
       .addTo(map);
 
-    async function onDrag() {
+    function onDrag() {
       // update the marker coordinates anytime the marker is dragged
       lngLat = marker.getLngLat();
       // update the circle coordinates anytime the marker is dragged
@@ -242,7 +239,7 @@ const Map = (props) => {
 
       let selectColl = [];
       let selectCollCent = [];
-      await axios
+      axios
         .post("/api/getIntersect", {
           data: {
             circle: newCircle,
@@ -291,7 +288,7 @@ const Map = (props) => {
   }, [radius]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="map">
+    <div>
       <div className="sidebarStyle">
         <div>
           Longitude: {lng} | Latitude: {lat} | Zoom: {zoom}
