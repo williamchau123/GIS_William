@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import { stringify } from "querystring";
 import "mapbox-gl/dist/mapbox-gl.css";
+import axios from "axios";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API;
 
@@ -49,12 +50,13 @@ const Map = (props) => {
 
   const [radius, setRadius] = useState(5);
 
+  const [avgIncome, setAvgIncome] = useState(0);
+  const [avgPop, setAvgPop] = useState(0);
   let map: mapboxgl.Map;
 
   // Initialize map when component mounts
   useEffect(() => {
-    if (!map){
-      console.log(map)
+    if (!map) {
       map = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: "mapbox://styles/mapbox/streets-v11",
@@ -66,6 +68,7 @@ const Map = (props) => {
     // Add navigation control (the +/- zoom buttons)
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
+    //update map longitude and latitude
     map.on("move", () => {
       setLng(map.getCenter().lng.toFixed(4));
       setLat(map.getCenter().lat.toFixed(4));
@@ -73,96 +76,160 @@ const Map = (props) => {
     });
 
     map.on("load", function () {
-      if (
-        all &&
-        all.data &&
-        all.data.rows &&
-        cent &&
-        cent.data &&
-        cent.data.rows
-      ) {
-        let featColl = [];
-        let featCollCent = [];
-        for (let i = 0; i < all.data.rows.length; i++) {
-          featColl.push({
-            type: "Feature",
-            geometry: JSON.parse(all.data.rows[i].st_asgeojson),
-          });
-          featCollCent.push({
-            type: "Feature",
-            geometry: JSON.parse(cent.data.rows[i].st_asgeojson),
-          });
-        }
-        map.addSource("poly", {
-          type: "geojson",
-          data: {
-            type: "FeatureCollection",
-            features: featColl,
-          },
+      let featColl = [];
+      let featCollCent = [];
+      // convert the data to geojson format
+      for (let i = 0; i < all.data.rows.length; i++) {
+        featColl.push({
+          type: "Feature",
+          geometry: JSON.parse(all.data.rows[i].st_asgeojson),
         });
-
-        // Add a new layer to visualize the polygon.
-        map.addLayer({
-          id: "fill",
-          type: "fill",
-          source: "poly", // reference the data source
-          layout: {},
-          paint: {
-            "fill-color": "#0080ff", // blue color fill
-            "fill-opacity": 0.2,
-          },
-        });
-        // Add a outline around the polygon.
-        map.addLayer({
-          id: "outline",
-          type: "line",
-          source: "poly",
-          layout: {},
-          paint: {
-            "line-color": "#0080ff",
-            "line-width": 3,
-          },
-        });
-
-        map.addSource("cent", {
-          type: "geojson",
-          data: {
-            type: "FeatureCollection",
-            features: featCollCent,
-          },
-        });
-
-        // Add a new layer to visualize the point.
-        map.addLayer({
-          id: "fillc",
-          type: "circle",
-          source: "cent", // reference the data source
-          layout: {},
-          paint: {
-            "circle-color": "#000", // blue color fill
-            "circle-radius": 3,
-          },
-        });
-
-        
-        map.addSource("circle", {
-          type: "geojson",
-          data: createGeoJSONCircle([lngLat.lng, lngLat.lat], radius),
-        });
-
-        map.addLayer({
-          id: "circle",
-          type: "fill",
-          source: "circle",
-          layout: {},
-          paint: {
-            "fill-color": "yellow",
-            "fill-opacity": 0.6,
-          },
+        featCollCent.push({
+          type: "Feature",
+          geometry: JSON.parse(cent.data.rows[i].st_asgeojson),
         });
       }
-    });
+      map.addSource("poly", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: featColl,
+        },
+      });
 
+      // Add a new layer to visualize the polygon.
+      map.addLayer({
+        id: "fill",
+        type: "fill",
+        source: "poly", // reference the data source
+        layout: {},
+        paint: {
+          "fill-color": "#0080ff", // blue color fill
+          "fill-opacity": 0.2,
+        },
+      });
+      // Add a outline around the polygon.
+      map.addLayer({
+        id: "outline",
+        type: "line",
+        source: "poly",
+        layout: {},
+        paint: {
+          "line-color": "#0080ff",
+          "line-width": 3,
+        },
+      });
+
+      map.addSource("cent", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: featCollCent,
+        },
+      });
+
+      // Add a new layer to visualize the point.
+      map.addLayer({
+        id: "fillc",
+        type: "circle",
+        source: "cent", // reference the data source
+        layout: {},
+        paint: {
+          "circle-color": "#000", // blue color fill
+          "circle-radius": 3,
+        },
+      });
+
+      map.addSource("circle", {
+        type: "geojson",
+        data: createGeoJSONCircle([lngLat.lng, lngLat.lat], radius),
+      });
+
+      map.addLayer({
+        id: "circle",
+        type: "fill",
+        source: "circle",
+        layout: {},
+        paint: {
+          "fill-color": "yellow",
+          "fill-opacity": 0.6,
+        },
+      });
+
+      let selectColl = [];
+      let selectCollCent = [];
+      // fetch the overlapped polygons
+      axios
+        .post("/api/getIntersect", {
+          data: {
+            circle: createGeoJSONCircle([lngLat.lng, lngLat.lat], radius),
+          },
+        })
+        .then((response) => {
+          let tempAvgIncome = 0;
+          let tempAvgPop = 0;
+          for (let i = 0; i < response.data.rows.length; i++) {
+            selectColl.push({
+              type: "Feature",
+              geometry: JSON.parse(response.data.rows[i].st_asgeojson),
+            });
+            selectCollCent.push({
+              type: "Feature",
+              geometry: JSON.parse(response.data.rows[i].centroid),
+            });
+
+            tempAvgIncome += response.data.rows[i].income;
+            tempAvgPop += response.data.rows[i].population;
+          }
+          map.addSource("select", {
+            type: "geojson",
+            data: {
+              type: "FeatureCollection",
+              features: selectColl,
+            },
+          });
+          map.addLayer({
+            id: "select",
+            type: "fill",
+            source: "select",
+            layout: {},
+            paint: {
+              "fill-color": "orange",
+              "fill-opacity": 0.6,
+            },
+          });
+          map.addSource("selectCent", {
+            type: "geojson",
+            data: {
+              type: "FeatureCollection",
+              features: selectCollCent,
+            },
+          });
+          map.addLayer({
+            id: "selectCent",
+            type: "circle",
+            source: "selectCent",
+            layout: {},
+            paint: {
+              "circle-color": "yellow",
+              "circle-radius": 3,
+            },
+          });
+          setAvgIncome(
+            parseFloat((tempAvgIncome / response.data.rows.length).toFixed(2))
+          );
+          setAvgPop(Math.round(tempAvgPop / response.data.rows.length));
+        })
+        .catch((e) => {
+          console.log(e);
+        });
+    });
+    // Clean up on unmount
+    return () => map.remove();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Initialize marker and correspond drag event
+  useEffect(() => {
     const marker = new mapboxgl.Marker({
       draggable: true,
     })
@@ -170,19 +237,61 @@ const Map = (props) => {
       .addTo(map);
 
     function onDrag() {
+      // update the marker coordinates anytime the marker is dragged
       lngLat = marker.getLngLat();
-      setCircle(lngLat);
+      // update the circle coordinates anytime the marker is dragged
+      setCircle(lngLat); // notify the circle coordinates change
       const newCircle = createGeoJSONCircle([lngLat.lng, lngLat.lat], radius);
-      map
-        .getSource("circle")
-        .setData(newCircle);
-      
+      map.getSource("circle").setData(newCircle);
+
+      let selectColl = [];
+      let selectCollCent = [];
+      axios
+        .post("/api/getIntersect", {
+          data: {
+            circle: newCircle,
+          },
+        })
+        .then((response) => {
+          let tempAvgIncome = 0;
+          let tempAvgPop = 0;
+
+          for (let i = 0; i < response.data.rows.length; i++) {
+            selectColl.push({
+              type: "Feature",
+              geometry: JSON.parse(response.data.rows[i].st_asgeojson),
+            });
+            selectCollCent.push({
+              type: "Feature",
+              geometry: JSON.parse(response.data.rows[i].centroid),
+            });
+
+            tempAvgIncome += response.data.rows[i].income;
+            tempAvgPop += response.data.rows[i].population;
+          }
+          map.getSource("select").setData({
+            type: "FeatureCollection",
+            features: selectColl,
+          });
+          map.getSource("selectCent").setData({
+            type: "FeatureCollection",
+            features: selectCollCent,
+          });
+
+          setAvgIncome(
+            parseFloat((tempAvgIncome / response.data.rows.length).toFixed(2))
+          );
+          setAvgPop(Math.round(tempAvgPop / response.data.rows.length));
+        })
+        .catch((e) => {
+          console.log(e);
+        });
     }
 
     marker.on("drag", onDrag);
 
     // Clean up on unmount
-    return () => map.remove();
+    return;
   }, [radius]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -207,6 +316,10 @@ const Map = (props) => {
         />
       </label>
       <div className="map-container" ref={mapContainerRef} />
+      <div className="sidebarStyle">
+        <div>Average Income: {avgIncome}</div>
+        <div>Average Population: {avgPop}</div>
+      </div>
     </div>
   );
 };

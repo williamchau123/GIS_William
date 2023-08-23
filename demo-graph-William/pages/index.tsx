@@ -10,8 +10,6 @@ const GIS: React.FC = (props) => {
     axios
       .get("/api/getAll")
       .then((response) => {
-        const test = JSON.parse(response.data.rows[0].st_asgeojson);
-        console.log(test)
         setAllLoc(response);
       })
       .catch((e) => {
@@ -20,8 +18,6 @@ const GIS: React.FC = (props) => {
     axios
       .get("/api/getCent")
       .then((response) => {
-        const test = JSON.parse(response.data.rows[0].st_asgeojson);
-        console.log(test)
         setAllCent(response);
       })
       .catch((e) => {
