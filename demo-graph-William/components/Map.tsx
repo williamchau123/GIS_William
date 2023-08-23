@@ -141,7 +141,7 @@ const Map = (props) => {
 
       map.addSource("circle", {
         type: "geojson",
-        data: createGeoJSONCircle([lngLat.lng, lngLat.lat], radius),
+        data: createGeoJSONCircle([circle.lng, circle.lat], radius),
       });
 
       map.addLayer({
@@ -161,7 +161,7 @@ const Map = (props) => {
       axios
         .post("/api/getIntersect", {
           data: {
-            circle: createGeoJSONCircle([lngLat.lng, lngLat.lat], radius),
+            circle: createGeoJSONCircle([circle.lng, circle.lat], radius),
           },
         })
         .then((response) => {
@@ -223,16 +223,11 @@ const Map = (props) => {
           console.log(e);
         });
     });
-    // Clean up on unmount
-    return () => map.remove();
-  }, [radius]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Initialize marker and correspond drag event
-  useEffect(() => {
+    
     const marker = new mapboxgl.Marker({
       draggable: true,
     })
-      .setLngLat([lng, lat])
+      .setLngLat([circle.lng, circle.lat])
       .addTo(map);
 
     function onDrag() {
@@ -290,7 +285,7 @@ const Map = (props) => {
     marker.on("drag", onDrag);
 
     // Clean up on unmount
-    return;
+    return () => map.remove();
   }, [radius]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -299,10 +294,12 @@ const Map = (props) => {
         <div>
           Longitude: {lng} | Latitude: {lat} | Zoom: {zoom}
         </div>
-      </div>
-      <div className="sidebarStyle">
         {circle && <div>Circle Longitude: {circle.lng}</div>}
         {circle && <div>Circle Latitude: {circle.lat}</div>}
+      </div>
+      <div className="sidebarStyle">
+        <div>Average Income: {avgIncome}</div>
+        <div>Average Population: {avgPop}</div>
       </div>
       <label>
         Radius:
@@ -315,10 +312,7 @@ const Map = (props) => {
         />
       </label>
       <div className="map-container" ref={mapContainerRef} />
-      <div className="sidebarStyle">
-        <div>Average Income: {avgIncome}</div>
-        <div>Average Population: {avgPop}</div>
-      </div>
+      
     </div>
   );
 };
