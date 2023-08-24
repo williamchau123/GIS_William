@@ -51,7 +51,7 @@ const Map = (props) => {
   const [radius, setRadius] = useState(5);
 
   const [avgIncome, setAvgIncome] = useState(0);
-  const [avgPop, setAvgPop] = useState(0);
+  const [ttlPop, setTtlPop] = useState(0);
   let map: mapboxgl.Map;
 
   // Initialize map when component mounts
@@ -165,7 +165,7 @@ const Map = (props) => {
         })
         .then((response) => {
           let tempAvgIncome = 0;
-          let tempAvgPop = 0;
+          let tempTtlPop = 0;
           for (let i = 0; i < response.data.rows.length; i++) {
             selectColl.push({
               type: "Feature",
@@ -177,7 +177,7 @@ const Map = (props) => {
             });
 
             tempAvgIncome += response.data.rows[i].income;
-            tempAvgPop += response.data.rows[i].population;
+            tempTtlPop += response.data.rows[i].population;
           }
           map.addSource("select", {
             type: "geojson",
@@ -216,7 +216,7 @@ const Map = (props) => {
           setAvgIncome(
             parseFloat((tempAvgIncome / response.data.rows.length).toFixed(2))
           );
-          setAvgPop(Math.round(tempAvgPop / response.data.rows.length));
+          setTtlPop(tempTtlPop);
         })
         .catch((e) => {
           console.log(e);
@@ -247,7 +247,7 @@ const Map = (props) => {
         })
         .then((response) => {
           let tempAvgIncome = 0;
-          let tempAvgPop = 0;
+          let tempTtlPop = 0;
 
           for (let i = 0; i < response.data.rows.length; i++) {
             selectColl.push({
@@ -260,7 +260,7 @@ const Map = (props) => {
             });
 
             tempAvgIncome += response.data.rows[i].income;
-            tempAvgPop += response.data.rows[i].population;
+            tempTtlPop += response.data.rows[i].population;
           }
           map.getSource("select").setData({
             type: "FeatureCollection",
@@ -274,7 +274,7 @@ const Map = (props) => {
           setAvgIncome(
             parseFloat((tempAvgIncome / response.data.rows.length).toFixed(2))
           );
-          setAvgPop(Math.round(tempAvgPop / response.data.rows.length));
+          setTtlPop(tempTtlPop);
         })
         .catch((e) => {
           console.log(e);
@@ -298,7 +298,7 @@ const Map = (props) => {
       </div>
       <div className="sidebarStyle">
         <div>Average Income: {avgIncome}</div>
-        <div>Average Population: {avgPop}</div>
+        <div>Total Population: {ttlPop}</div>
       </div>
       <label>
         Radius:
