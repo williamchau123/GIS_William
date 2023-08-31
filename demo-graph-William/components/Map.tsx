@@ -5,21 +5,20 @@ import axios from "axios";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_API;
 
-
-var createGeoJSONCircle = function (center, radiusInKm, points = 64) {
-  var coords = {
+const createGeoJSONCircle = function (center, radiusInKm, points = 64) {
+  let coords = {
     latitude: center[1],
     longitude: center[0],
   };
 
-  var km = radiusInKm;
+  let km = radiusInKm;
 
-  var ret = [];
-  var distanceX = km / (111.32 * Math.cos((coords.latitude * Math.PI) / 180));
-  var distanceY = km / 110.574;
+  let ret = [];
+  let distanceX = km / (111.32 * Math.cos((coords.latitude * Math.PI) / 180));
+  let distanceY = km / 110.574;
 
-  var theta, x, y;
-  for (var i = 0; i < points; i++) {
+  let theta, x, y;
+  for (let i = 0; i < points; i++) {
     theta = (i / points) * (2 * Math.PI);
     x = distanceX * Math.cos(theta);
     y = distanceY * Math.sin(theta);
@@ -49,10 +48,12 @@ const Map = (props) => {
   const [circle, setCircle] = useState(lngLat);
 
   const [radius, setRadius] = useState(5);
+  const radiusRef = useRef(5);
 
-  const [avgIncome, setAvgIncome] = useState(0);
+  const [avgIncome, setAvgIncome] = useState("");
   const [ttlPop, setTtlPop] = useState(0);
   let map: mapboxgl.Map;
+  const [tMap, setMap] = useState<mapboxgl.Map>();
 
   // Initialize map when component mounts
   useEffect(() => {
@@ -62,6 +63,7 @@ const Map = (props) => {
       center: [lng, lat],
       zoom: zoom,
     });
+    setMap(map);
 
     // Add navigation control (the +/- zoom buttons)
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
@@ -77,14 +79,14 @@ const Map = (props) => {
       let featColl = [];
       let featCollCent = [];
       // convert the data to geojson format
-      for (let i = 0; i < all.data.rows.length; i++) {
+      for (let i = 0; i < all.length; i++) {
         featColl.push({
           type: "Feature",
-          geometry: JSON.parse(all.data.rows[i].st_asgeojson),
+          geometry: JSON.parse(all[i]),
         });
         featCollCent.push({
           type: "Feature",
-          geometry: JSON.parse(cent.data.rows[i].st_asgeojson),
+          geometry: JSON.parse(cent[i]),
         });
       }
       map.addSource("poly", {
@@ -164,8 +166,10 @@ const Map = (props) => {
           },
         })
         .then((response) => {
-          let tempAvgIncome = 0;
+          let tempAvgIncome: string;
           let tempTtlPop = 0;
+          tempAvgIncome = response.data.avg;
+          tempTtlPop = response.data.sum;
           for (let i = 0; i < response.data.rows.length; i++) {
             selectColl.push({
               type: "Feature",
@@ -175,9 +179,6 @@ const Map = (props) => {
               type: "Feature",
               geometry: JSON.parse(response.data.rows[i].centroid),
             });
-
-            tempAvgIncome += response.data.rows[i].income;
-            tempTtlPop += response.data.rows[i].population;
           }
           map.addSource("select", {
             type: "geojson",
@@ -213,30 +214,80 @@ const Map = (props) => {
               "circle-radius": 3,
             },
           });
-          setAvgIncome(
-            parseFloat((tempAvgIncome / response.data.rows.length).toFixed(2))
-          );
+          setAvgIncome(parseFloat(tempAvgIncome).toFixed(2));
           setTtlPop(tempTtlPop);
         })
         .catch((e) => {
           console.log(e);
         });
     });
+    return () => map.remove();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const marker = new mapboxgl.Marker({
+  function getRadius() {
+    return radiusRef.current;
+  }
+  useEffect(() => {
+    radiusRef.current = radius;
+    const newCircle = createGeoJSONCircle([circle.lng, circle.lat], radius);
+    if (tMap != null) {
+      try {
+        tMap.getSource("circle").setData(newCircle);
+        let selectColl = [];
+        let selectCollCent = [];
+        axios
+          .post("/api/getIntersect", {
+            data: {
+              circle: newCircle,
+            },
+          })
+          .then((response) => {
+            let tempAvgIncome: string;
+            let tempTtlPop = 0;
+            tempAvgIncome = response.data.avg;
+            tempTtlPop = response.data.sum;
+            for (let i = 0; i < response.data.rows.length; i++) {
+              selectColl.push({
+                type: "Feature",
+                geometry: JSON.parse(response.data.rows[i].st_asgeojson),
+              });
+              selectCollCent.push({
+                type: "Feature",
+                geometry: JSON.parse(response.data.rows[i].centroid),
+              });
+            }
+            tMap.getSource("select").setData({
+              type: "FeatureCollection",
+              features: selectColl,
+            });
+            tMap.getSource("selectCent").setData({
+              type: "FeatureCollection",
+              features: selectCollCent,
+            });
+
+            setAvgIncome(parseFloat(tempAvgIncome).toFixed(2));
+            setTtlPop(tempTtlPop);
+          })
+          .catch((e) => {
+            console.log(e);
+          });
+      } catch (e) {
+        console.log(e);
+      }
+    }
+    let marker = new mapboxgl.Marker({
       draggable: true,
     })
       .setLngLat([circle.lng, circle.lat])
       .addTo(map);
-
-    function onDrag() {
+    let end = false;
+    function onDrag(e) {
       // update the marker coordinates anytime the marker is dragged
-      lngLat = marker.getLngLat();
-      // update the circle coordinates anytime the marker is dragged
-      setCircle(lngLat); // notify the circle coordinates change
-      const newCircle = createGeoJSONCircle([lngLat.lng, lngLat.lat], radius);
-      map.getSource("circle").setData(newCircle);
-
+      lngLat = e.target._lngLat;
+      const newCircle = createGeoJSONCircle(
+        [lngLat.lng, lngLat.lat],
+        getRadius()
+      );
       let selectColl = [];
       let selectCollCent = [];
       axios
@@ -246,9 +297,62 @@ const Map = (props) => {
           },
         })
         .then((response) => {
-          let tempAvgIncome = 0;
-          let tempTtlPop = 0;
+          if (!end) {
+            let tempAvgIncome: string;
+            let tempTtlPop = 0;
+            tempAvgIncome = response.data.avg;
+            tempTtlPop = response.data.sum;
+            for (let i = 0; i < response.data.rows.length; i++) {
+              selectColl.push({
+                type: "Feature",
+                geometry: JSON.parse(response.data.rows[i].st_asgeojson),
+              });
+              selectCollCent.push({
+                type: "Feature",
+                geometry: JSON.parse(response.data.rows[i].centroid),
+              });
+            }
+            map.getSource("select").setData({
+              type: "FeatureCollection",
+              features: selectColl,
+            });
+            map.getSource("selectCent").setData({
+              type: "FeatureCollection",
+              features: selectCollCent,
+            });
 
+            setAvgIncome(parseFloat(tempAvgIncome).toFixed(2));
+            setTtlPop(tempTtlPop);
+          }
+        })
+        .catch((e) => {
+          console.log(e);
+        });
+      // update the circle coordinates anytime the marker is dragged
+      setCircle(lngLat); // notify the circle coordinates change
+      map.getSource("circle").setData(newCircle);
+    }
+    function onDragEnd(e) {
+      // update the marker coordinates anytime the marker is dragged
+      lngLat = e.target._lngLat;
+      const newCircle = createGeoJSONCircle(
+        [lngLat.lng, lngLat.lat],
+        getRadius()
+      );
+      let selectColl = [];
+      let selectCollCent = [];
+      end = true;
+      axios
+        .post("/api/getIntersect", {
+          data: {
+            circle: newCircle,
+          },
+        })
+        .then((response) => {
+          let tempAvgIncome: string;
+          let tempTtlPop = 0;
+          tempAvgIncome = response.data.avg;
+          tempTtlPop = response.data.sum;
           for (let i = 0; i < response.data.rows.length; i++) {
             selectColl.push({
               type: "Feature",
@@ -258,9 +362,6 @@ const Map = (props) => {
               type: "Feature",
               geometry: JSON.parse(response.data.rows[i].centroid),
             });
-
-            tempAvgIncome += response.data.rows[i].income;
-            tempTtlPop += response.data.rows[i].population;
           }
           map.getSource("select").setData({
             type: "FeatureCollection",
@@ -271,20 +372,25 @@ const Map = (props) => {
             features: selectCollCent,
           });
 
-          setAvgIncome(
-            parseFloat((tempAvgIncome / response.data.rows.length).toFixed(2))
-          );
+          setAvgIncome(parseFloat(tempAvgIncome).toFixed(2));
           setTtlPop(tempTtlPop);
         })
         .catch((e) => {
           console.log(e);
         });
     }
+    function onDragStart() {
+      end = false;
+    }
+    marker.on("drag", (e) => {
+      onDrag(e);
+    });
+    marker.on("dragend", (e) => {
+      onDragEnd(e);
+    });
+    marker.on("dragstart", onDragStart);
 
-    marker.on("drag", onDrag);
-
-    // Clean up on unmount
-    return () => map.remove();
+    return () => {};
   }, [radius]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

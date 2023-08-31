@@ -10,15 +10,14 @@ const GIS: React.FC = (props) => {
     axios
       .get("/api/getAll")
       .then((response) => {
-        setAllLoc(response);
-      })
-      .catch((e) => {
-        console.log(e);
-      });
-    axios
-      .get("/api/getCent")
-      .then((response) => {
-        setAllCent(response);
+        let all = [];
+        let cent = [];
+        for (let i = 0; i < response.data.rows.length; i++) {
+          all.push(response.data.rows[i].st_asgeojson);
+          cent.push(response.data.rows[i].centroid);
+        }
+        setAllLoc(all);
+        setAllCent(cent);
       })
       .catch((e) => {
         console.log(e);
