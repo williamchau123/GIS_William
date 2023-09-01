@@ -409,6 +409,7 @@ const Map = (props) => {
       <label>
         Radius:
         <input
+          min="0"
           type="number"
           value={radius}
           onChange={function (e) {
